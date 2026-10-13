@@ -1,4 +1,4 @@
-// Example: a simple counter model for demonstrating charm-test.
+// Exemplo: um contador simples para demonstrar o charm-test.
 package main
 
 import (
@@ -7,18 +7,22 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// Model is a simple counter that increments with "k"/up and decrements with "j"/down.
+// Model é um contador simples que incrementa com "k"/up e decrementa com
+// "j"/down.
 type Model struct {
 	Count int
 	quit  bool
 }
 
+// New cria um contador zerado.
 func New() Model {
 	return Model{}
 }
 
+// Init implementa tea.Model.
 func (m Model) Init() tea.Cmd { return nil }
 
+// Update implementa tea.Model.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
@@ -37,6 +41,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// View implementa tea.Model.
 func (m Model) View() tea.View {
 	if m.quit {
 		return tea.View{}
