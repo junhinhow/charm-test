@@ -7,6 +7,23 @@ import (
 	"testing"
 )
 
+// chdir muda o diretório de trabalho do teste e o restaura no final.
+func chdir(t *testing.T, dir string) {
+	t.Helper()
+	anterior, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("falha ao obter o diretório de trabalho: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("falha ao mudar para o diretório %s: %v", dir, err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(anterior); err != nil {
+			t.Errorf("falha ao restaurar o diretório de trabalho: %v", err)
+		}
+	})
+}
+
 // TestSnapshotGoldenAusenteÉUmErro é uma regressão do achado 10: um golden
 // inexistente precisa ser detectado como erro, e não passar silenciosamente.
 func TestSnapshotGoldenAusenteÉUmErro(t *testing.T) {
@@ -64,7 +81,7 @@ func TestSnapshotGoldenDiferenteÉMismatch(t *testing.T) {
 // CHARM_TEST_UPDATE=1 é a única forma de sobrescrever um golden.
 func TestSnapshotUpdateSobrescreveComConfirmacao(t *testing.T) {
 	dir := t.TempDir()
-	t.Chdir(dir)
+	chdir(t, dir)
 	t.Setenv("CHARM_TEST_UPDATE", "1")
 
 	sim := New(&modeloRegistro{})
@@ -80,7 +97,7 @@ func TestSnapshotUpdateSobrescreveComConfirmacao(t *testing.T) {
 // criado quando necessário.
 func TestSnapshotCriaDiretorioDoGolden(t *testing.T) {
 	dir := t.TempDir()
-	t.Chdir(dir)
+	chdir(t, dir)
 	t.Setenv("CHARM_TEST_UPDATE", "1")
 
 	sim := New(&modeloRegistro{})
@@ -95,7 +112,7 @@ func TestSnapshotCriaDiretorioDoGolden(t *testing.T) {
 // informações da view que não estão no conteúdo.
 func TestSnapshotIncluiRetratoCompleto(t *testing.T) {
 	dir := t.TempDir()
-	t.Chdir(dir)
+	chdir(t, dir)
 	t.Setenv("CHARM_TEST_UPDATE", "1")
 
 	sim := New(&modeloCompleto{})
