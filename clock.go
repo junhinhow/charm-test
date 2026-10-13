@@ -220,7 +220,7 @@ func (s *Simulator) fireVirtualTimers() bool {
 		s.deliverVirtualTimer(next)
 		s.scheduleBase = base
 	}
-	s.setErr(fmt.Errorf("charmtest: limite de %d eventos excedido durante o avanço do relógio virtual", s.maxEvents))
+	s.setErr(fmt.Errorf("charmtest: limite de %d mensagens processadas excedido durante o avanço do relógio virtual", s.maxEvents))
 	return fired
 }
 
