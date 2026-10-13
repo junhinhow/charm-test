@@ -434,6 +434,35 @@ func TestLimiteDeProfundidadeEvitaLoopInfinito(t *testing.T) {
 	}
 }
 
+// TestLimiteDeEventosEvitaSimulacaoInfinita verifica a rede de proteção
+// final contra modelos que nunca ficam ociosos.
+func TestLimiteDeEventosEvitaSimulacaoInfinita(t *testing.T) {
+	sim := New(&modeloLoop{}, WithMaxDepth(1000), WithMaxEvents(10))
+
+	err := sim.Err()
+	if err == nil {
+		t.Fatal("o simulador deveria ter registrado um erro de limite de mensagens")
+	}
+	if !strings.Contains(err.Error(), "mensagens processadas") {
+		t.Errorf("a mensagem de erro deveria mencionar o limite de mensagens, obtive %q", err.Error())
+	}
+}
+
+// TestPendingTimersContaOsTemporizadores verifica a contagem de
+// temporizadores pendentes.
+func TestPendingTimersContaOsTemporizadores(t *testing.T) {
+	m := &modeloTickVirtual{interval: 100 * time.Millisecond}
+	sim := New(m)
+
+	if got := sim.PendingTimers(); got != 1 {
+		t.Errorf("esperava 1 temporizador pendente, obtive %d", got)
+	}
+	sim.Advance(100 * time.Millisecond)
+	if got := sim.PendingTimers(); got != 1 {
+		t.Errorf("após o tick o modelo deveria ter reagido e rearmeado o timer, obtive %d", got)
+	}
+}
+
 // TestModelAsComModeloPorValor é uma regressão do achado 6: com receptor por
 // valor, sim.Model().(*MeuModel) entra em pânico.
 func TestModelAsComModeloPorValor(t *testing.T) {

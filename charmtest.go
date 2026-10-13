@@ -53,8 +53,9 @@ const (
 	DefaultMaxDepth = 100
 
 	// DefaultMaxEvents é o número máximo de mensagens processadas durante
-	// uma única chamada de avanço do relógio.
-	DefaultMaxEvents = 10000
+	// toda a simulação. É a última rede de proteção contra modelos que
+	// nunca ficam ociosos.
+	DefaultMaxEvents = 100000
 )
 
 // Simulator conduz um modelo Bubble Tea pelo seu ciclo de vida sem um
@@ -123,6 +124,14 @@ func WithMaxMessages(n int) Option {
 func WithMaxDepth(n int) Option {
 	return func(s *Simulator) {
 		s.maxDepth = n
+	}
+}
+
+// WithMaxEvents limita o total de mensagens processadas na simulação. É a
+// rede de proteção final contra modelos que nunca ficam ociosos.
+func WithMaxEvents(n int) Option {
+	return func(s *Simulator) {
+		s.maxEvents = n
 	}
 }
 
