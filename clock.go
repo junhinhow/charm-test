@@ -247,16 +247,28 @@ func (s *Simulator) scheduleRealTimer(cmd tea.Cmd) {
 
 // fireRealTimers entrega as mensagens dos temporizadores reais que disparam
 // dentro do orçamento de tempo real informado.
+//
+// O orçamento nunca ultrapassa maxAdvanceWait: quando isso acontece, a
+// simulação é interrompida com um erro claro, em vez de ficar esperando
+// indefinidamente.
 func (s *Simulator) fireRealTimers(budget time.Duration) bool {
 	if len(s.realTimers) == 0 {
 		return false
 	}
-	deadline := time.Now().Add(budget)
+	limite := budget
+	truncado := false
+	if s.maxAdvanceWait > 0 && limite > s.maxAdvanceWait {
+		limite = s.maxAdvanceWait
+		truncado = true
+	}
+	deadline := time.Now().Add(limite)
 	fired := false
+	excedido := false
 	for len(s.realTimers) > 0 && s.events < s.maxEvents {
 		remaining := time.Until(deadline)
 		if remaining <= 0 {
-			return fired
+			excedido = true
+			break
 		}
 		t := s.realTimers[0]
 		select {
@@ -267,8 +279,17 @@ func (s *Simulator) fireRealTimers(budget time.Duration) bool {
 				s.Send(msg)
 			}
 		case <-time.After(remaining):
-			return fired
+			excedido = true
 		}
+		if excedido {
+			break
+		}
+	}
+	if truncado && excedido && len(s.realTimers) > 0 {
+		s.setErr(fmt.Errorf(
+			"charmtest: o avanço de %s excedeu o orçamento real de %s e há temporizadores reais pendentes; use charmtest.Tick/charmtest.Every para uma simulação sem tempo real",
+			budget, s.maxAdvanceWait,
+		))
 	}
 	return fired
 }

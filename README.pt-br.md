@@ -58,6 +58,8 @@ Opções:
 | `WithEnvironment(env)` | Variáveis de ambiente entregues em `tea.EnvMsg` (padrão: `os.Environ()`) |
 | `WithMaxMessages(n)` | Quantas mensagens são guardadas para depuração (padrão: 1000) |
 | `WithMaxDepth(n)` | Limite de recursão de comandos, protege contra loops de comandos (padrão: 100) |
+| `WithMaxEvents(n)` | Limite total de mensagens, última rede contra modelos que nunca ficam ociosos (padrão: 100000) |
+| `WithMaxAdvanceWait(d)` | Quanto tempo real um `Advance` pode esperar por temporizadores reais (padrão: 10s) |
 
 ### Simulação de Input
 
@@ -103,8 +105,10 @@ sim.Now()                               // instante atual do relógio virtual
 
 `tea.Tick`/`tea.Every` continuam usando o timer do sistema operacional por
 baixo dos panos, portanto entregá-los consome tempo real (limitado pela
-janela avançada). Para uma simulação 100% virtual — sem nenhuma espera real
-— use `charmtest.Tick` e `charmtest.Every` no modelo:
+janela avançada e por `WithMaxAdvanceWait`; exceder esse orçamento falha o
+teste com uma mensagem clara, em vez de travar). Para uma simulação 100%
+virtual — sem nenhuma espera real — use `charmtest.Tick` e
+`charmtest.Every` no modelo:
 
 ```go
 func (m model) Init() tea.Cmd {

@@ -434,6 +434,32 @@ func TestLimiteDeProfundidadeEvitaLoopInfinito(t *testing.T) {
 	}
 }
 
+// TestAdvanceExcedeOrcamentoRealFalha verifica que um avanço que exigiria
+// mais tempo real do que o permitido falha com uma mensagem clara, em vez de
+// travar o teste.
+func TestAdvanceExcedeOrcamentoRealFalha(t *testing.T) {
+	m := &modeloTickReal{interval: 200 * time.Millisecond}
+	sim := New(m, WithMaxAdvanceWait(50*time.Millisecond))
+
+	inicio := time.Now()
+	sim.Advance(2 * time.Second)
+	elapsed := time.Since(inicio)
+
+	if elapsed > time.Second {
+		t.Errorf("o Advance deveria ter parado no orçamento real, levou %s", elapsed)
+	}
+	err := sim.Err()
+	if err == nil {
+		t.Fatal("o simulador deveria ter registrado o estouro do orçamento real")
+	}
+	if !strings.Contains(err.Error(), "orçamento real") {
+		t.Errorf("a mensagem de erro deveria mencionar o orçamento real, obtive %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "charmtest.Tick") {
+		t.Errorf("a mensagem de erro deveria sugerir charmtest.Tick, obtive %q", err.Error())
+	}
+}
+
 // TestLimiteDeEventosEvitaSimulacaoInfinita verifica a rede de proteção
 // final contra modelos que nunca ficam ociosos.
 func TestLimiteDeEventosEvitaSimulacaoInfinita(t *testing.T) {

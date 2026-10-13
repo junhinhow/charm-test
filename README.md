@@ -58,6 +58,8 @@ Options:
 | `WithEnvironment(env)` | Environment variables delivered in `tea.EnvMsg` (default: `os.Environ()`) |
 | `WithMaxMessages(n)` | How many messages are kept for debugging (default: 1000) |
 | `WithMaxDepth(n)` | Command recursion limit, protects against command loops (default: 100) |
+| `WithMaxEvents(n)` | Total message limit, last resort against models that never settle (default: 100000) |
+| `WithMaxAdvanceWait(d)` | How much real time an `Advance` may spend waiting for real timers (default: 10s) |
 
 ### Input Simulation
 
@@ -101,9 +103,11 @@ sim.Now()                               // current virtual instant
 ```
 
 `tea.Tick`/`tea.Every` still use the operating system timer underneath, so
-delivering them consumes real time (bounded by the advanced window). For a
-fully virtual simulation — no real waiting at all — use `charmtest.Tick` and
-`charmtest.Every` in the model instead:
+delivering them consumes real time (bounded by the advanced window and by
+`WithMaxAdvanceWait`; exceeding that budget fails the test with a clear
+message instead of hanging). For a fully virtual simulation — no real
+waiting at all — use `charmtest.Tick` and `charmtest.Every` in the model
+instead:
 
 ```go
 func (m model) Init() tea.Cmd {

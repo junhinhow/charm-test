@@ -56,6 +56,12 @@ const (
 	// toda a simulação. É a última rede de proteção contra modelos que
 	// nunca ficam ociosos.
 	DefaultMaxEvents = 100000
+
+	// DefaultMaxAdvanceWait é o tempo real máximo que um Advance pode
+	// esperar por temporizadores reais do Bubble Tea (tea.Tick/tea.Every).
+	// Exceder esse limite faz a simulação falhar com uma mensagem clara,
+	// em vez de travar o teste.
+	DefaultMaxAdvanceWait = 10 * time.Second
 )
 
 // Simulator conduz um modelo Bubble Tea pelo seu ciclo de vida sem um
@@ -76,6 +82,10 @@ type Simulator struct {
 	maxDepth  int
 	events    int
 	maxEvents int
+
+	// maxAdvanceWait limita o tempo real que um Advance pode esperar por
+	// temporizadores reais do Bubble Tea.
+	maxAdvanceWait time.Duration
 
 	// now é o instante atual do relógio virtual e scheduleBase é a base
 	// usada para calcular o prazo dos novos temporizadores. Durante a
@@ -135,6 +145,15 @@ func WithMaxEvents(n int) Option {
 	}
 }
 
+// WithMaxAdvanceWait limita o tempo real que um Advance pode esperar por
+// temporizadores reais do Bubble Tea (tea.Tick/tea.Every). O padrão é
+// DefaultMaxAdvanceWait.
+func WithMaxAdvanceWait(d time.Duration) Option {
+	return func(s *Simulator) {
+		s.maxAdvanceWait = d
+	}
+}
+
 // WithColorProfile define o perfil de cores entregue ao modelo em
 // tea.ColorProfileMsg. O padrão é colorprofile.TrueColor.
 func WithColorProfile(profile colorprofile.Profile) Option {
@@ -178,6 +197,8 @@ func New(model tea.Model, opts ...Option) *Simulator {
 		profile:     colorprofile.TrueColor,
 		environ:     os.Environ(),
 		now:         epoch,
+
+		maxAdvanceWait: DefaultMaxAdvanceWait,
 	}
 	s.scheduleBase = epoch
 	for _, opt := range opts {
