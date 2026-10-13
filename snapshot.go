@@ -11,15 +11,23 @@ import (
 
 const snapshotDir = "testdata"
 
-// RequireSnapshot compares the current view against a golden file stored
-// in testdata/<testname>.golden. If the golden file does not exist, it is
-// created automatically (the test passes on first run, then validates on
-// subsequent runs).
+// RequireSnapshot compara a view atual com um arquivo golden armazenado em
+// testdata/<nome-do-teste>.golden.
 //
-// Set the CHARM_TEST_UPDATE=1 environment variable to overwrite existing
-// golden files when the expected output changes intentionally.
+// O golden precisa existir: se ele não existir, o teste falha com uma
+// mensagem explicando como criá-lo. Isso evita que uma mudança de output
+// passe despercebida em CI, em que todo snapshot novo seria aceito sem
+// comparação.
 //
-// Usage:
+// Use a variável de ambiente CHARM_TEST_UPDATE=1 para criar ou sobrescrever
+// os arquivos golden:
+//
+//	CHARM_TEST_UPDATE=1 go test ./...
+//
+// O snapshot inclui o retrato completo da view (conteúdo, tela alternativa,
+// cursor, cores, barra de progresso e título), e não apenas o conteúdo.
+//
+// Uso:
 //
 //	func TestMyView(t *testing.T) {
 //	    sim := charmtest.New(NewMyModel())
@@ -31,9 +39,9 @@ func RequireSnapshot(t *testing.T, s *Simulator) {
 	requireSnapshotNamed(t, s, t.Name())
 }
 
-// RequireSnapshotNamed is like RequireSnapshot but uses a custom name for
-// the golden file instead of the test name. Useful when a single test
-// captures multiple snapshots at different points.
+// RequireSnapshotNamed é como RequireSnapshot, mas usa um nome customizado
+// para o arquivo golden. Útil quando um único teste captura vários snapshots
+// em pontos diferentes.
 func RequireSnapshotNamed(t *testing.T, s *Simulator, name string) {
 	t.Helper()
 	requireSnapshotNamed(t, s, name)
@@ -41,42 +49,79 @@ func RequireSnapshotNamed(t *testing.T, s *Simulator, name string) {
 
 func requireSnapshotNamed(t *testing.T, s *Simulator, name string) {
 	t.Helper()
+	requireNoError(t, s)
 
-	// Sanitize the name for use as a filename
+	// Sanitiza o nome para uso como nome de arquivo.
 	safeName := strings.ReplaceAll(name, "/", "_")
 	safeName = strings.ReplaceAll(safeName, "\\", "_")
 	safeName = strings.ReplaceAll(safeName, " ", "_")
 
 	goldenPath := filepath.Join(snapshotDir, safeName+".golden")
-	actual := ansi.Strip(s.View())
+	actual := s.ViewSnapshot().String()
+	actual = ansi.Strip(actual)
 
-	// Check if we should update snapshots
 	update := os.Getenv("CHARM_TEST_UPDATE") == "1"
 
-	// If golden file doesn't exist or update is requested, create/overwrite it
-	if _, err := os.Stat(goldenPath); os.IsNotExist(err) || update {
-		if err := os.MkdirAll(snapshotDir, 0o755); err != nil {
-			t.Fatalf("failed to create snapshot directory: %v", err)
-		}
-		if err := os.WriteFile(goldenPath, []byte(actual), 0o644); err != nil {
-			t.Fatalf("failed to write golden file: %v", err)
-		}
-		if update {
-			t.Logf("snapshot updated: %s", goldenPath)
-		} else {
-			t.Logf("snapshot created: %s (run again to validate)", goldenPath)
-		}
+	estado, err := compareSnapshot(goldenPath, actual)
+	switch {
+	case err != nil:
+		t.Fatalf("falha ao ler o snapshot golden %s: %v", goldenPath, err)
+	case estado == snapshotMatch:
 		return
+	case estado == snapshotMissing:
+		if !update {
+			t.Fatalf("snapshot golden não encontrado: %s\nCrie-o com: CHARM_TEST_UPDATE=1 go test ./...", goldenPath)
+		}
+		writeGolden(t, goldenPath, actual)
+		t.Logf("snapshot criado: %s", goldenPath)
+	case estado == snapshotMismatch:
+		expected, _ := os.ReadFile(goldenPath)
+		if !update {
+			t.Errorf("snapshot divergente em %s:\n--- esperado (golden) ---\n%s\n--- atual ---\n%s\n\nAtualize com: CHARM_TEST_UPDATE=1 go test ./...",
+				goldenPath, string(expected), actual)
+			return
+		}
+		writeGolden(t, goldenPath, actual)
+		t.Logf("snapshot atualizado: %s", goldenPath)
 	}
+}
 
-	// Read and compare
+// snapshotEstado é o resultado da comparação entre o snapshot atual e o
+// arquivo golden.
+type snapshotEstado int
+
+const (
+	// snapshotMatch indica que o golden existe e é igual ao snapshot atual.
+	snapshotMatch snapshotEstado = iota
+	// snapshotMismatch indica que o golden existe, mas difere do snapshot.
+	snapshotMismatch
+	// snapshotMissing indica que o golden ainda não existe.
+	snapshotMissing
+)
+
+// compareSnapshot compara o snapshot atual com o arquivo golden.
+func compareSnapshot(goldenPath, actual string) (snapshotEstado, error) {
 	expected, err := os.ReadFile(goldenPath)
-	if err != nil {
-		t.Fatalf("failed to read golden file %s: %v", goldenPath, err)
+	switch {
+	case err == nil:
+		if string(expected) == actual {
+			return snapshotMatch, nil
+		}
+		return snapshotMismatch, nil
+	case os.IsNotExist(err):
+		return snapshotMissing, nil
+	default:
+		return snapshotMatch, err
 	}
+}
 
-	if actual != string(expected) {
-		t.Errorf("snapshot mismatch for %s:\n--- expected (golden) ---\n%s\n--- actual ---\n%s\n\nRun with CHARM_TEST_UPDATE=1 to update the snapshot.",
-			goldenPath, string(expected), actual)
+// writeGolden grava o conteúdo do snapshot no arquivo golden.
+func writeGolden(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(snapshotDir, 0o755); err != nil {
+		t.Fatalf("falha ao criar o diretório de snapshots: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("falha ao escrever o snapshot golden: %v", err)
 	}
 }

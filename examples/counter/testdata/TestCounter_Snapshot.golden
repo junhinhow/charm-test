@@ -1,0 +1,14 @@
+content:
+Count: 5
+
+Press k/j to change, q to quit.
+altscreen: false
+bracketedpaste: true
+cursor: none
+background: none
+foreground: none
+mousemode: none
+progressbar: none
+reportfocus: false
+windowtitle: ""
+keyboardenhancements: reporteventtypes=false
