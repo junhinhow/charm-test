@@ -57,7 +57,7 @@ func requireSnapshotNamed(t *testing.T, s *Simulator, name string) {
 	safeName = strings.ReplaceAll(safeName, " ", "_")
 
 	goldenPath := filepath.Join(snapshotDir, safeName+".golden")
-	actual := s.ViewSnapshot().String()
+	actual := normalizeNewlines(s.ViewSnapshot().String())
 	actual = ansi.Strip(actual)
 
 	update := os.Getenv("CHARM_TEST_UPDATE") == "1"
@@ -78,7 +78,7 @@ func requireSnapshotNamed(t *testing.T, s *Simulator, name string) {
 		expected, _ := os.ReadFile(goldenPath)
 		if !update {
 			t.Errorf("snapshot divergente em %s:\n--- esperado (golden) ---\n%s\n--- atual ---\n%s\n\nAtualize com: CHARM_TEST_UPDATE=1 go test ./...",
-				goldenPath, string(expected), actual)
+				goldenPath, normalizeNewlines(string(expected)), actual)
 			return
 		}
 		writeGolden(t, goldenPath, actual)
@@ -100,11 +100,14 @@ const (
 )
 
 // compareSnapshot compara o snapshot atual com o arquivo golden.
+//
+// As quebras de linha são normalizadas, para que o mesmo golden funcione em
+// Windows e em sistemas Unix, independentemente da configuração do Git.
 func compareSnapshot(goldenPath, actual string) (snapshotEstado, error) {
 	expected, err := os.ReadFile(goldenPath)
 	switch {
 	case err == nil:
-		if string(expected) == actual {
+		if normalizeNewlines(string(expected)) == actual {
 			return snapshotMatch, nil
 		}
 		return snapshotMismatch, nil
@@ -113,6 +116,11 @@ func compareSnapshot(goldenPath, actual string) (snapshotEstado, error) {
 	default:
 		return snapshotMatch, err
 	}
+}
+
+// normalizeNewlines converte as quebras de linha CRLF e CR em LF.
+func normalizeNewlines(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(s, "\r\n", "\n"), "\r", "\n")
 }
 
 // writeGolden grava o conteúdo do snapshot no arquivo golden.
